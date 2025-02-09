@@ -40,3 +40,8 @@ This repository adds **AI features** to the existing [Judge0 IDE](https://github
 
 
 Enjoy exploring the **AI-enhanced** capabilities of Judge0 IDE!
+
+## 🖼️ Screenshots
+![Screenshot#1](.github/screenshot1.png)
+![Screenshot#2](.github/screenshot2.png)
+![Screenshot#3](.github/screenshot3.png)
