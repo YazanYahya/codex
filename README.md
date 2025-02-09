@@ -1,33 +1,42 @@
-# Judge0 IDE
-[![Judge0 IDE Screenshot](./.github/screenshot.png)](https://ide.judge0.com)
+# AI Assistant for Judge0 IDE
 
-[![License](https://img.shields.io/github/license/judge0/ide?color=2185d0&style=flat-square)](https://github.com/judge0/ide/blob/master/LICENSE)
-[![Release](https://img.shields.io/github/v/release/judge0/ide?color=2185d0&style=flat-square)](https://github.com/judge0/ide/releases)
-[![Stars](https://img.shields.io/github/stars/judge0/ide?color=2185d0&style=flat-square)](https://github.com/judge0/ide/stargazers)
+This repository adds **AI features** to the existing [Judge0 IDE](https://github.com/judge0/ide). The new capabilities include:
 
-<a href="https://www.producthunt.com/posts/judge0-ide" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=179885&theme=light" alt="" height="43px" /></a>
+1. **AI Chat Panel**:  
+   Ask code-related questions or discuss debugging strategies directly in an integrated chat interface.
 
-## About
-[**Judge0 IDE**](https://ide.judge0.com) is a free and open-source online code editor that allows you to write and execute code from a rich set of languages. It's perfect for anybody who just wants to quickly write and run some code without opening a full-featured IDE on their computer. Moreover, it is also useful for teaching and learning or just trying out a new language.
+2. **Suggest Fix**:  
+   If your code doesn’t compile, the AI can analyze the compiler error and suggest ways to fix it.
 
-Judge0 IDE is using [**Judge0**](https://ce.judge0.com) for executing the user's source code.
+3. **Code-Selection Widget**:  
+   Highlight any portion of your code, then instantly **Ask AI** about it—e.g., get clarifications or improvements.
 
-Visit https://ide.judge0.com, and enjoy happy coding. :)
+---
 
-## Community
-Do you have a question, feature request, or something else on your mind? Or do you want to follow Judge0 news?
+## AI-Specific Features
 
-* [Subscribe to Judge0 newsletter](https://subscribe.judge0.com)
-* [Join our Discord server](https://discord.gg/GRc3v6n)
-* [Watch asciicasts](https://asciinema.org/~hermanzdosilovic)
-* [Report an issue](https://github.com/judge0/judge0/issues/new)
-* [Contact us](mailto:contact@judge0.com)
-* [Schedule an online meeting with us](https://meet.judge0.com)
+### AI Chat Panel
+- Appears on the right side of the IDE layout.
+- Type any question (e.g., “How does this algorithm work?”) and **Send** to receive an AI-generated response.
+- The assistant’s replies appear in a **chat** format, all within the IDE.
 
-## Author and Contributors
-Judge0 IDE was created by [Herman Zvonimir Došilović](https://github.com/hermanzdosilovic).
+### Suggest Fix
+- When a compilation error is detected, a **Suggest Fix** button becomes visible.
+- Clicking it prompts the AI to analyze the **error output** and propose a fix or explanation.
 
-Thanks a lot to all [contributors](https://github.com/judge0/ide/graphs/contributors) for their contributions to this project.
+### Code-Selection Widget
+- Highlight a snippet of code in the **Source Editor**.
+- A small floating **“Ask AI”** box appears, allowing you to enter a specific question about that snippet.
+- The AI’s response is displayed within the main chat panel, ensuring a unified conversation flow.
 
-## License
-Judge0 IDE is licensed under the [MIT License](https://github.com/judge0/ide/blob/master/LICENSE).
+---
+
+## Configuration
+
+- In **`ai.js`**, set your **AI endpoint** (`AI_ENDPOINT`), **API key** (`AI_API_KEY`), and possibly **model** (e.g., GPT, LLaMA).
+- Ensure your AI service can handle the code context and return well-structured responses.
+
+---
+
+
+Enjoy exploring the **AI-enhanced** capabilities of Judge0 IDE!

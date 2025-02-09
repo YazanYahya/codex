@@ -1,0 +1,167 @@
+.judge0-file-menu {
+    min-width: 15rem !important;
+}
+
+#judge0-status-line {
+    font-family: "JetBrains Mono" !important;
+}
+
+#judge0-status-line:empty {
+    display: none;
+}
+
+.judge0-hidden {
+    display: none !important;
+}
+
+@media (display-mode: standalone) {
+    .judge0-standalone-hidden {
+        display: none !important;
+    }
+}
+
+.assistant-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #f9f9f9;
+    border-left: 1px solid #ddd;
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background: #2185d0;
+    color: white;
+}
+
+.chat-header .ai-avatar {
+    font-size: 1.5rem;
+    margin-right: 10px;
+}
+
+.chat-header h3 {
+    flex-grow: 1;
+    margin: 0;
+}
+
+.chat-header .status-indicator {
+    width: 12px;
+    height: 12px;
+    background: #6c757d;
+    border-radius: 50%;
+    transition: background 0.3s ease-in-out;
+}
+
+.chat-header .status-indicator.active {
+    background: #28a745;
+}
+
+.chat-messages {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.message {
+    display: flex;
+    margin-bottom: 10px;
+}
+
+.message.user {
+    justify-content: flex-end;
+}
+
+.message.ai {
+    justify-content: flex-start;
+    flex-direction: column;
+
+}
+
+.message-bubble {
+    padding: 10px 15px;
+    border-radius: 15px;
+    max-width: 80%;
+    word-wrap: break-word;
+    overflow-x: auto;
+}
+
+.message.user .message-bubble {
+    background: #2185d0;
+    color: white;
+    border-bottom-right-radius: 0;
+}
+
+.message.ai .message-bubble {
+    background: #e9ecef;
+    color: #212529;
+    border-bottom-left-radius: 0;
+}
+
+.message-timestamp {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+.chat-input-container {
+    padding: 10px;
+    border-top: 1px solid #ddd;
+}
+
+.input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.message-input {
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+    resize: none;
+}
+
+.send-button {
+    background: #2185d0;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 10px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.send-button:hover {
+    background: #0056b3;
+}
+
+.input-hint {
+    margin-top: 5px;
+    font-size: 0.9rem;
+    color: #6c757d;
+    text-align: center;
+}
+
+.suggest-fix-button {
+    background: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 15px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.3s ease-in-out;
+}
+
+.suggest-fix-button:hover {
+    background: #e68900;
+}
+
+.suggest-fix-button:disabled {
+    background: #bdbdbd;
+    cursor: not-allowed;
+}
