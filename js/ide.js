@@ -1,5 +1,10 @@
 import {IS_PUTER} from "./puter.js";
-import {createSelectionChatWidget, initAssistantPanel, toggleSuggestFixButton} from "./ai.js";
+import {
+    createSelectionChatWidget,
+    initAssistantPanel,
+    registerAutoCompletionProvider,
+    toggleSuggestFixButton
+} from "./ai.js";
 
 const API_KEY = ""; // Get yours at https://platform.sulu.sh/apis/judge0
 
@@ -575,7 +580,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             });
 
             sourceEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, run);
-            createSelectionChatWidget(sourceEditor);
+            createSelectionChatWidget(sourceEditor, getSelectedLanguage);
+            registerAutoCompletionProvider(getSelectedLanguage);
         });
 
         layout.registerComponent("stdin", function (container, state) {
@@ -611,7 +617,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
 
         layout.registerComponent("assistant", function (container, state) {
-            initAssistantPanel(container, sourceEditor, () => compilationErrorMessage);
+            initAssistantPanel(container, sourceEditor, getSelectedLanguage, () => compilationErrorMessage);
         });
 
         layout.init();

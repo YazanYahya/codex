@@ -1,14 +1,16 @@
 const AI_ENDPOINT = "ADD_YOUR_AI_SERVICE_URL_HERE";
 const AI_API_KEY = "ADD_YOUR_AI_API_KEY_HERE";
 const AI_MODEL = "ADD_YOUR_AI_MODEL_NAME_HERE";
+const completionCache = {};
+const MAX_CONTEXT_LENGTH = 2000;
 
 /**
- * Base AI function to call your model.
- * @param {string} question - The user's question or request.
- * @param {string} [codeContext=""] - Optional code snippet or entire source code for more context.
- * @returns {Promise<string>} AI's raw HTML response.
+ * Low-level function that calls the AI chat API.
+ * @param {string} systemPrompt - Instruction to set AI behavior.
+ * @param {string} userPrompt - The user's query and context.
+ * @returns {Promise<string>} - The AI's response text.
  */
-export async function callAiApi(question, codeContext = "") {
+async function fetchChatCompletion(systemPrompt, userPrompt) {
     try {
         const response = await fetch(AI_ENDPOINT, {
             method: "POST",
@@ -19,65 +21,86 @@ export async function callAiApi(question, codeContext = "") {
             body: JSON.stringify({
                 model: AI_MODEL,
                 messages: [
-                    {
-                        "role": "system",
-                        "content": "You are an AI code assistant designed to help with code editing, debugging, and explaining programming concepts."
-                    },
-                    {
-                        role: "user",
-                        content: `${question}\n\nFull Source Code:\n${codeContext}`
-                    }
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt }
                 ]
             })
         });
 
-        if (!response.ok) {
-            throw new Error(`AI request failed with status: ${response.status}`);
-        }
+        if (!response.ok)
+            throw new Error(`API Error: ${response.status} ${response.statusText}`);
 
         const data = await response.json();
-        // Retrieve the AI response (assumed to be in Markdown format)
-        const markdownResponse = data?.choices?.[0]?.message?.content || "No response from AI.";
-
-        // Convert the Markdown to HTML using marked
-        const htmlResponse = marked.parse(markdownResponse);
-
-        return htmlResponse;
-    } catch (err) {
-        console.error("[AI] Error:", err);
-        throw err;
+        return data?.choices?.[0]?.message?.content || "No response from AI.";
+    } catch (error) {
+        console.error("[AI] API Request Failed:", error);
+        throw error;
     }
 }
 
 /**
- * Ask the AI to suggest a fix for a compilation error.
- * @param {string} errorOutput - The text of the compilation error.
- * @param {string} [codeContext=""] - Your entire source code for context if needed.
- * @returns {Promise<string>} The AI's suggested fix (HTML).
+ * Fetches the code assistant's response.
+ * @param {string} question - The user's question.
+ * @param {string} codeContext - The full source code context.
+ * @param {Function} getSelectedLanguage - Async function returning current language.
+ * @returns {Promise<string>} - HTML formatted AI response.
  */
-export async function getFixSuggestion(errorOutput, codeContext = "") {
-    const prompt = `Suggest a fix for this compiler error:\n${errorOutput}`;
-    return callAiApi(prompt, codeContext);
+export async function fetchCodeAssistantResponse(
+    question,
+    codeContext,
+    getSelectedLanguage
+) {
+    const language = await getSelectedLanguage();
+    const systemPrompt = `You are an expert programming assistant. Provide concise and accurate answers to questions about code. When applicable, include code snippets and follow ${language.name}'s formatting conventions.`;
+    const userPrompt = `Question: ${question}\n\nSource Code:\n${codeContext}`;
+
+    // Get the markdown response from the AI
+    const markdownResponse = await fetchChatCompletion(systemPrompt, userPrompt);
+
+    // Convert the Markdown to HTML (using marked)
+    return marked.parse(markdownResponse);
 }
 
 /**
- * Ask the AI specifically about a selected snippet from the editor, with a user prompt.
- * @param {string} selectedCode - The snippet the user highlighted.
- * @param {string} userPrompt   - The question or instructions from the user.
- * @param {string} [fullSource=""] - The entire source code for additional context if needed.
- * @returns {Promise<string>} The AI's HTML response.
+ * Fetches a fix suggestion for a compiler error.
+ * @param {string} errorOutput - The compiler error message.
+ * @param {string} codeContext - The full source code.
+ * @param {Function} getSelectedLanguage - Async function returning current language.
+ * @returns {Promise<string>} - HTML formatted AI response.
  */
-export async function askAiAboutSelectedCode(selectedCode, userPrompt, fullSource = "") {
-    const combinedPrompt = `${userPrompt}\n\nSelected code:\n${selectedCode}`;
-    return callAiApi(combinedPrompt, fullSource);
+export async function fetchCompilationFixSuggestion(
+    errorOutput,
+    codeContext,
+    getSelectedLanguage
+) {
+    const prompt = `Analyze the following compiler error and suggest a potential fix. Return only the code changes (with minimal explanation if necessary):\n${errorOutput}`;
+    return fetchCodeAssistantResponse(prompt, codeContext, getSelectedLanguage);
 }
 
 /**
- * Appends a chat message (either user or AI) to the assistant's .chat-messages container.
- * @param {string} content - The HTML content for the message bubble.
- * @param {boolean} [isUser=false] - Pass true if it's a user message, false for AI.
+ * Queries the AI about a highlighted code snippet with an additional user prompt.
+ * @param {string} selectedCode - The highlighted code snippet.
+ * @param {string} userPrompt - The user's question.
+ * @param {string} fullSource - The full source code.
+ * @param {Function} getSelectedLanguage - Async function returning current language.
+ * @returns {Promise<string>} - HTML formatted AI response.
  */
-export function addAssistantMessage(content, isUser = false) {
+export async function queryHighlightedCode(
+    selectedCode,
+    userPrompt,
+    fullSource = "",
+    getSelectedLanguage
+) {
+    const combinedPrompt = `${userPrompt}\n\nHighlighted Code:\n${selectedCode}`;
+    return fetchCodeAssistantResponse(combinedPrompt, fullSource, getSelectedLanguage);
+}
+
+/**
+ * Appends a chat message (either from the user or the AI) to the chat container.
+ * @param {string} content - The HTML content of the message.
+ * @param {boolean} isUser - Whether the message is from the user.
+ */
+export function addChatMessage(content, isUser = false) {
     const chatContainer = document.querySelector(".chat-messages");
     if (!chatContainer) return;
 
@@ -85,7 +108,7 @@ export function addAssistantMessage(content, isUser = false) {
         ? ""
         : `<div class="message-timestamp">${new Date().toLocaleTimeString([], {
             hour: "2-digit",
-            minute: "2-digit",
+            minute: "2-digit"
         })}</div>`;
 
     const messageEl = document.createElement("div");
@@ -99,14 +122,15 @@ export function addAssistantMessage(content, isUser = false) {
 }
 
 /**
- * Creates a small floating widget in the source editor that allows
- * the user to highlight code, type a question, and ask the AI about it.
- * @param {object} sourceEditor - The Monaco editor instance for the source code.
+ * Creates a floating widget within the source editor that lets the user select code,
+ * type a question, and query the AI about that specific snippet.
+ * @param {Object} sourceEditor - The editor instance.
+ * @param {Function} getSelectedLanguage - Async function returning current language.
  */
-export function createSelectionChatWidget(sourceEditor) {
-    const ChatSelectionWidget = {
+export function createSelectionChatWidget(sourceEditor, getSelectedLanguage) {
+    const SelectionChatWidget = {
         domNode: null,
-        getId: () => "ChatSelectionWidget",
+        getId: () => "SelectionChatWidget",
         getDomNode: function () {
             if (!this.domNode) {
                 this.domNode = document.createElement("div");
@@ -125,11 +149,11 @@ export function createSelectionChatWidget(sourceEditor) {
                     width: "340px"
                 });
 
-                // Input for user question
-                const inputArea = document.createElement("textarea");
-                inputArea.placeholder = "Enter your question...";
-                inputArea.rows = 2;
-                Object.assign(inputArea.style, {
+                // Input area for the user's question.
+                const questionInput = document.createElement("textarea");
+                questionInput.placeholder = "Enter your question...";
+                questionInput.rows = 2;
+                Object.assign(questionInput.style, {
                     width: "100%",
                     border: "1px solid #1E88E5",
                     borderRadius: "6px",
@@ -139,10 +163,10 @@ export function createSelectionChatWidget(sourceEditor) {
                     fontSize: "14px"
                 });
 
-                // "Ask AI" button
-                const askButton = document.createElement("button");
-                askButton.textContent = "Ask AI";
-                Object.assign(askButton.style, {
+                // "Ask AI" button.
+                const askAIButton = document.createElement("button");
+                askAIButton.textContent = "Ask AI";
+                Object.assign(askAIButton.style, {
                     width: "100%",
                     backgroundColor: "#00897B",
                     color: "white",
@@ -153,31 +177,34 @@ export function createSelectionChatWidget(sourceEditor) {
                     fontWeight: "bold",
                     transition: "background 0.3s"
                 });
-                askButton.onmouseover = () => (askButton.style.backgroundColor = "#00695C");
-                askButton.onmouseout = () => (askButton.style.backgroundColor = "#00897B");
+                askAIButton.onmouseover = () =>
+                    (askAIButton.style.backgroundColor = "#00695C");
+                askAIButton.onmouseout = () =>
+                    (askAIButton.style.backgroundColor = "#00897B");
 
-                askButton.onclick = async () => {
+                askAIButton.onclick = async () => {
                     const selectedText = sourceEditor
                         .getModel()
                         .getValueInRange(sourceEditor.getSelection());
-                    const userQuestion = inputArea.value.trim();
+                    const userQuestion = questionInput.value.trim();
 
                     if (!selectedText || !userQuestion) return;
 
-                    // Show user’s question in chat
-                    addAssistantMessage(
+                    // Show the user's question and the selected code.
+                    addChatMessage(
                         `<p>${userQuestion}</p><pre><code>${selectedText}</code></pre>`,
                         true
                     );
-                    addAssistantMessage("<p>Processing your request...</p>", false);
+                    addChatMessage("<p>Processing your request...</p>", false);
 
                     try {
-                        const response = await askAiAboutSelectedCode(
+                        const response = await queryHighlightedCode(
                             selectedText,
                             userQuestion,
-                            sourceEditor.getValue()
+                            sourceEditor.getValue(),
+                            getSelectedLanguage
                         );
-                        // Replace the last message with AI's final response
+                        // Update the last message bubble with the AI's response.
                         const lastBubble = document.querySelector(
                             ".chat-messages .message:last-child .message-bubble"
                         );
@@ -190,12 +217,12 @@ export function createSelectionChatWidget(sourceEditor) {
                             lastBubble.innerHTML = `<div class="error-message">⚠️ Error: ${err.message}</div>`;
                         }
                     } finally {
-                        inputArea.value = "";
+                        questionInput.value = "";
                     }
                 };
 
-                this.domNode.appendChild(inputArea);
-                this.domNode.appendChild(askButton);
+                this.domNode.appendChild(questionInput);
+                this.domNode.appendChild(askAIButton);
             }
             return this.domNode;
         },
@@ -204,14 +231,16 @@ export function createSelectionChatWidget(sourceEditor) {
             if (selection && !selection.isEmpty()) {
                 return {
                     position: selection.getEndPosition(),
-                    preference: [monaco.editor.ContentWidgetPositionPreference.EXACT]
+                    preference: [
+                        monaco.editor.ContentWidgetPositionPreference.EXACT
+                    ]
                 };
             }
             return null;
         }
     };
 
-    sourceEditor.addContentWidget(ChatSelectionWidget);
+    sourceEditor.addContentWidget(SelectionChatWidget);
 
     sourceEditor.onDidChangeCursorSelection(() => {
         const selectedText = sourceEditor
@@ -219,22 +248,27 @@ export function createSelectionChatWidget(sourceEditor) {
             .getValueInRange(sourceEditor.getSelection());
 
         if (selectedText.trim()) {
-            sourceEditor.layoutContentWidget(ChatSelectionWidget);
-            ChatSelectionWidget.domNode.style.display = "block";
+            sourceEditor.layoutContentWidget(SelectionChatWidget);
+            SelectionChatWidget.domNode.style.display = "block";
         } else {
-            ChatSelectionWidget.domNode.style.display = "none";
+            SelectionChatWidget.domNode.style.display = "none";
         }
     });
 }
 
 /**
- * Initializes the AI Assistant Panel in, for example, a GoldenLayout container.
- * @param {object} container - The layout container where the assistant panel is rendered.
- * @param {object} sourceEditor - The main Monaco editor instance (for context).
- * @param {Function} getCompilationError - A function returning the current compilation error message (if any).
+ * Initializes the AI Assistant Panel (e.g., within a GoldenLayout container).
+ * @param {Object} container - The layout container.
+ * @param {Object} sourceEditor - The editor instance.
+ * @param {Function} getSelectedLanguage - Async function returning current language.
+ * @param {Function} getCompilationError - Function to retrieve current compilation error.
  */
-export function initAssistantPanel(container, sourceEditor, getCompilationError) {
-    // The HTML for the AI panel (could also come from a separate .html file).
+export function initAssistantPanel(
+    container,
+    sourceEditor,
+    getSelectedLanguage,
+    getCompilationError
+) {
     const panelHtml = `
     <div class="assistant-panel">
       <div class="chat-header">
@@ -246,7 +280,7 @@ export function initAssistantPanel(container, sourceEditor, getCompilationError)
       <div class="chat-input-container">
         <div class="input-wrapper">
           <textarea
-            placeholder="Ask me anything about code... (Shift+Enter for new line)"
+            placeholder="Ask me anything about code... (Shift+Enter for a new line)"
             rows="1"
             class="message-input"
           ></textarea>
@@ -260,10 +294,8 @@ export function initAssistantPanel(container, sourceEditor, getCompilationError)
     </div>
   `;
 
-    // Insert the panel HTML
     container.getElement().html(panelHtml);
 
-    // Grab DOM references
     const $panel = container.getElement();
     const $messages = $panel.find(".chat-messages");
     const $input = $panel.find(".message-input");
@@ -271,60 +303,72 @@ export function initAssistantPanel(container, sourceEditor, getCompilationError)
     const $fixBtn = $panel.find(".suggest-fix-button");
     const $indicator = $panel.find(".status-indicator");
 
-    // Toggle loading
+    // Toggle the loading state.
     function setLoadingState(isLoading) {
         $indicator.toggleClass("active", isLoading);
         $sendBtn.prop("disabled", isLoading);
         $fixBtn.prop("disabled", isLoading);
     }
 
-    // Replace last bubble content
+    // Replace the last message bubble's content.
     function replaceLastBubble(newHTML) {
         $messages.find(".message:last .message-bubble").html(newHTML);
     }
 
-    // On "Send"
+    // Handle "Send" button click.
     async function handleSend() {
         const userQuestion = $input.val().trim();
         if (!userQuestion) return;
 
-        addAssistantMessage(userQuestion, true);
+        addChatMessage(userQuestion, true);
         $input.val("");
 
         setLoadingState(true);
-        addAssistantMessage("<p>Processing your request...</p>", false);
+        addChatMessage("<p>Processing your request...</p>", false);
 
         try {
             const codeCtx = sourceEditor.getValue();
-            const aiResponse = await callAiApi(userQuestion, codeCtx);
+            const aiResponse = await fetchCodeAssistantResponse(
+                userQuestion,
+                codeCtx,
+                getSelectedLanguage
+            );
             replaceLastBubble(aiResponse);
         } catch (err) {
-            replaceLastBubble(`<div class="error-message">⚠️ Error: ${err.message}</div>`);
+            replaceLastBubble(
+                `<div class="error-message">⚠️ Error: ${err.message}</div>`
+            );
         } finally {
             setLoadingState(false);
         }
     }
 
-    // On "Suggest Fix"
+    // Handle "Suggest Fix" button click.
     async function handleSuggestFix() {
         const errorText = getCompilationError();
         if (!errorText) return;
 
         setLoadingState(true);
-        addAssistantMessage("<p>Analyzing the error and suggesting fixes...</p>", false);
+        addChatMessage(
+            "<p>Analyzing the error and suggesting fixes...</p>",
+            false
+        );
 
         try {
             const codeCtx = sourceEditor.getValue();
-            const fix = await getFixSuggestion(errorText, codeCtx);
-
-            addAssistantMessage(`
+            const fix = await fetchCompilationFixSuggestion(
+                errorText,
+                codeCtx,
+                getSelectedLanguage
+            );
+            addChatMessage(`
         <p>Compilation Error:</p>
         <pre><code>${errorText}</code></pre>
         <p><strong>AI Suggestion:</strong></p>
         ${fix}
       `);
         } catch (err) {
-            addAssistantMessage(
+            addChatMessage(
                 `<div class="error-message"><strong>Failed to fetch fix suggestion:</strong> ${err.message}</div>`
             );
         } finally {
@@ -332,11 +376,11 @@ export function initAssistantPanel(container, sourceEditor, getCompilationError)
         }
     }
 
-    // Events
+    // Event bindings.
     $sendBtn.on("click", handleSend);
     $fixBtn.on("click", handleSuggestFix);
 
-    // Enter => send, Shift+Enter => new line
+    // Enter to send; Shift+Enter for a newline.
     $input.on("keypress", (e) => {
         if (e.which === 13 && !e.shiftKey) {
             e.preventDefault();
@@ -344,7 +388,7 @@ export function initAssistantPanel(container, sourceEditor, getCompilationError)
         }
     });
 
-    // Auto-resize
+    // Auto-resize the input field.
     $input.on("input", function () {
         this.style.height = "auto";
         this.style.height = this.scrollHeight + "px";
@@ -352,11 +396,132 @@ export function initAssistantPanel(container, sourceEditor, getCompilationError)
 }
 
 /**
- * Toggle the visibility of the "Suggest Fix" button (if there's a compiler error).
- * @param {boolean} show - Pass true to show, false to hide.
+ * Toggles the visibility of the "Suggest Fix" button based on whether a compiler error exists.
+ * @param {boolean} show - true to show the button; false to hide.
  */
 export function toggleSuggestFixButton(show) {
     const fixBtn = document.querySelector(".suggest-fix-button");
     if (!fixBtn) return;
     fixBtn.style.display = show ? "inline-block" : "none";
+}
+
+/**
+ * Registers an AI-powered auto-completion provider.
+ * @param {Function} getCurrentLanguage - Async function returning the current language.
+ */
+export function registerAutoCompletionProvider(getCurrentLanguage) {
+    monaco.languages.registerCompletionItemProvider(
+        "*",
+        {
+            triggerCharacters: [".", "(", " ", ":", "{", "[", "="],
+            provideCompletionItems: async (model, position) => {
+                const language = await getCurrentLanguage();
+                const wordInfo = model.getWordUntilPosition(position);
+                const range = {
+                    startLineNumber: position.lineNumber,
+                    endLineNumber: position.lineNumber,
+                    startColumn: wordInfo.startColumn,
+                    endColumn: position.column
+                };
+
+                const textUntilPosition = model.getValueInRange({
+                    startLineNumber: 1,
+                    startColumn: 1,
+                    endLineNumber: position.lineNumber,
+                    endColumn: position.column
+                });
+
+                const truncatedContext = textUntilPosition.slice(-MAX_CONTEXT_LENGTH);
+
+                if (completionCache[truncatedContext]) {
+                    return {
+                        suggestions: completionCache[truncatedContext].map((item) => ({
+                            ...item,
+                            range: range
+                        }))
+                    };
+                }
+
+                try {
+                    const suggestions = await fetchAutoCompletionSuggestions(
+                        truncatedContext,
+                        language.name
+                    );
+                    const items = suggestions.map((suggestion) => ({
+                        label: suggestion,
+                        kind: monaco.languages.CompletionItemKind.Text,
+                        insertText: suggestion,
+                        documentation: "AI Suggestion",
+                        range: range
+                    }));
+                    console.log("AI Suggestions", suggestions);
+                    completionCache[truncatedContext] = items;
+                    return { suggestions: items };
+                } catch (error) {
+                    console.error("LLM Completion Error:", error);
+                    return { suggestions: [] };
+                }
+            }
+        },
+        1000
+    );
+}
+
+const AUTOCOMPLETE_SYSTEM_PROMPT = (language) =>
+    `You are a code completion assistant specialized in ${language}. Based on the provided context, return only the minimal code snippet needed to complete the current line. Do not include any explanations.`;
+
+const AUTOCOMPLETE_USER_PROMPT = (context, language) =>
+    `Given the following code context, provide up to 5 possible ${language} code completions. Return your suggestions as a JSON array of strings containing only code snippets.
+
+Code Context:
+\`\`\`${language}
+${context}
+\`\`\`
+`;
+
+/**
+ * Fetches AI-powered code completions for the current context.
+ * @param {string} codeContext - The code context.
+ * @param {string} language - The programming language.
+ * @returns {Promise<string[]>} - An array of code snippet suggestions.
+ */
+async function fetchAutoCompletionSuggestions(codeContext, language) {
+    try {
+        const rawResponse = await fetchChatCompletion(
+            AUTOCOMPLETE_SYSTEM_PROMPT(language),
+            AUTOCOMPLETE_USER_PROMPT(codeContext, language)
+        );
+        return parseCompletionResponse(rawResponse);
+    } catch (error) {
+        console.error("Autocomplete Error:", error);
+        return [];
+    }
+}
+
+/**
+ * Attempts to parse the AI response into an array of code completions.
+ * @param {string} rawText - The raw response text.
+ * @returns {string[]} - An array of code suggestions.
+ */
+function parseCompletionResponse(rawText) {
+    try {
+        // Try to extract a JSON array.
+        const jsonMatch = rawText.match(/\[.*?\]/s);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return parsed.filter((s) => typeof s === "string");
+        }
+
+        // Fallback: split by lines and clean up.
+        return rawText
+            .split("\n")
+            .map((line) =>
+                line.replace(/^[\s\-*>"']+|[\s\-*>"']+$/g, "").trim()
+            )
+            .filter((line) => line.length > 0)
+            .slice(0, 5);
+    } catch (err) {
+        console.warn("Failed to parse completion response:", err);
+        return [];
+    }
 }
