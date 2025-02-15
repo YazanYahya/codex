@@ -21,7 +21,7 @@ export async function callAiApi(question, codeContext = "") {
                 messages: [
                     {
                         "role": "system",
-                        "content": "You are an AI code assistant designed to help with code editing, debugging, and explaining programming concepts. Always respond strictly in valid HTML format. Do not include any plain text or preface your response with text. The response must begin with div tag, and all content must be wrapped in appropriate HTML tags. Use semantic HTML where possible. Ensure proper nesting and close all tags correctly."
+                        "content": "You are an AI code assistant designed to help with code editing, debugging, and explaining programming concepts."
                     },
                     {
                         role: "user",
@@ -36,8 +36,13 @@ export async function callAiApi(question, codeContext = "") {
         }
 
         const data = await response.json();
-        // Typically, the AI's text is in data.choices[0].message.content (depending on the API)
-        return data?.choices?.[0]?.message?.content || "<p>No response from AI.</p>";
+        // Retrieve the AI response (assumed to be in Markdown format)
+        const markdownResponse = data?.choices?.[0]?.message?.content || "No response from AI.";
+
+        // Convert the Markdown to HTML using marked
+        const htmlResponse = marked.parse(markdownResponse);
+
+        return htmlResponse;
     } catch (err) {
         console.error("[AI] Error:", err);
         throw err;
